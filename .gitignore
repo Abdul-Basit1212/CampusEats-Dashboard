@@ -1,60 +1,34 @@
-# ============================================================
-# CampusEats App — .gitignore
-# ============================================================
-
-# --- Environment & Secrets ---
+# Environment variables with API keys and secrets
 .env
 .env.local
 .env.*.local
-*.key
-*.pem
 
-# --- Virtual Environments ---
+# Database files (generated at runtime)
+*.db
+*.sqlite
+*.sqlite3
+
+# Python virtual environments
 venv/
 env/
 ENV/
-.venv
-env.bak/
-venv.bak/
+*.egg-info/
+dist/
+build/
 
-# --- Python ---
+# Python cache and compiled files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
 
-# --- Database Files ---
-*.db
-*.sqlite
-*.sqlite3
-CampusEats.db
-campus_eats.db
-
-# --- Log Files ---
-*.log
-logs/
+# Streamlit cache and temporary files
+.streamlit/
 streamlit_errors.log
+*.log
 
-# --- IDE & Editor ---
+# IDE and editor files
 .vscode/
 .idea/
 *.swp
@@ -62,31 +36,24 @@ streamlit_errors.log
 *~
 .DS_Store
 Thumbs.db
-*.sublime-project
-*.sublime-workspace
 
-# --- OS Files ---
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-
-# --- Streamlit Cache ---
-.streamlit/
-*.streamlit
-
-# --- Testing & Coverage ---
+# Testing and coverage
 .pytest_cache/
 .coverage
 htmlcov/
 
-# --- Node (if applicable) ---
-node_modules/
-npm-debug.log
+# OS-specific files
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+*.swo
 
-# --- Temporary Files ---
+# Temporary files
 *.tmp
-*.bak
 *.temp
+*.bak
+*~
+
+# Node modules (if using any frontend tools)
+node_modules/

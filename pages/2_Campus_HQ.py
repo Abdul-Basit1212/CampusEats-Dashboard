@@ -12,19 +12,13 @@ import plotly.graph_objects as go
 import folium
 from streamlit_folium import st_folium
 from database import fetch_data, get_all_campuses
-from security import validate_session, authorize_campus_access, log_audit
 
 # ── Page config & auth guard ──────────────────────────────────────────────────
 st.set_page_config(page_title="Campus HQ · CampusEats", page_icon="📍", layout="wide")
 
-# ⚠️ SECURITY: Validate session on EVERY page load
-if not validate_session():
-    st.warning("Session expired or invalid. Please login again.")
+if not st.session_state.get("logged_in"):
     st.switch_page("Home.py")
-    st.stop()
-
 if st.session_state.user_role not in ("admin", "incharge"):
-    log_audit("unauthorized_access_attempt", f"User tried to access campus page without permission: {st.session_state.user_role}")
     st.error("🚫 Access denied.")
     st.stop()
 

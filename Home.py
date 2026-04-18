@@ -11,23 +11,11 @@ On success the following session-state keys are set:
   st.session_state.entity_id   : None | campus_id | stall_id
   st.session_state.campus_id   : always set (None for admin until they pick one)
   st.session_state.user_name   : display name
-
-Security features:
-  - Rate limiting on login attempts
-  - Input validation and sanitization
-  - Session timeout (30 minutes)
-  - Audit logging
-  - Demo mode warning
 """
 
 import streamlit as st
-import os
 from dotenv import load_dotenv
 from database import authenticate_admin, authenticate_incharge, authenticate_stall
-from security import (
-    is_valid_email, is_valid_password, get_password_strength_feedback,
-    sanitize_input, log_audit, _is_demo_mode
-)
 
 load_dotenv()
 
@@ -150,18 +138,8 @@ def _set_role(role: str):
 
 def _do_login(role: str, identifier: str, password: str):
     """Attempt authentication and populate session state on success."""
-    # Sanitize inputs
-    identifier = sanitize_input(identifier)
-    password = sanitize_input(password, 1024)  # Longer for passwords
-    
     if role == "Global Admin":
-        # Validate email format
-        if not is_valid_email(identifier):
-            st.session_state.login_error = "Invalid email format."
-            log_audit("login_failed", f"Invalid email format: {identifier}")
-            return
-        
-        result = authenticate_admin(identifier, password)
+        result = authenticate_admin(identifier.strip(), password)
         if result:
             st.session_state.logged_in = True
             st.session_state.user_role = "admin"
@@ -173,13 +151,7 @@ def _do_login(role: str, identifier: str, password: str):
             st.session_state.login_error = "Invalid email or password."
 
     elif role == "Campus Incharge":
-        # Validate email format
-        if not is_valid_email(identifier):
-            st.session_state.login_error = "Invalid email format."
-            log_audit("login_failed", f"Invalid email format: {identifier}")
-            return
-        
-        result = authenticate_incharge(identifier, password)
+        result = authenticate_incharge(identifier.strip(), password)
         if result:
             st.session_state.logged_in = True
             st.session_state.user_role = "incharge"
@@ -191,16 +163,11 @@ def _do_login(role: str, identifier: str, password: str):
             st.session_state.login_error = "Invalid email or password."
 
     else:  # Stall Owner
-        # Validate stall ID is numeric
         try:
             sid = int(identifier.strip())
-            if sid <= 0:
-                raise ValueError()
         except ValueError:
-            st.session_state.login_error = "Stall ID must be a positive number."
-            log_audit("login_failed", "Invalid stall ID format")
+            st.session_state.login_error = "Stall ID must be a number."
             return
-        
         result = authenticate_stall(sid, password)
         if result:
             st.session_state.logged_in = True
@@ -234,16 +201,9 @@ if st.session_state.login_step == 1:
 else:
     role = st.session_state.selected_role
 
-    # ⚠️ SECURITY: Demo Mode Warning ──────────────────────────────────────────
-    if _is_demo_mode():
-        st.warning(
-            "🧪 **DEMO MODE ACTIVE** - Security validations are disabled. "
-            "This should ONLY be used for testing. DO NOT use in production!"
-        )
-        log_audit("demo_mode_warning", "User accessed demo mode login page")
-
     # Demo credentials banner
-    if _is_demo_mode():
+    import os
+    if os.getenv("DEMO_MODE", "false").lower() == "true":
         demo_hints = {
             "Global Admin":     "Email: admin@campuseats.pk  |  Password: any",
             "Campus Incharge":  "Email: nust@campuseats.pk  |  Password: any",
@@ -251,7 +211,7 @@ else:
         }
         st.markdown(
             f'<div class="demo-banner">🧪 <strong>Demo Mode</strong> — {demo_hints[role]}</div>',
-            unsafe_allow_html=False,  # Security: Changed to False to prevent XSS
+            unsafe_allow_html=True,
         )
 
     st.markdown(f"### Sign in as **{role}**")

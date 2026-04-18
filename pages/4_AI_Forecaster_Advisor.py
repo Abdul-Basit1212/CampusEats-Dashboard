@@ -15,7 +15,6 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_absolute_error
 from database import fetch_data, get_all_campuses
-from security import validate_session, log_audit
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,12 +23,8 @@ load_dotenv()
 st.set_page_config(
     page_title="AI Forecaster · CampusEats", page_icon="🔮", layout="wide"
 )
-
-# ⚠️ SECURITY: Validate session on EVERY page load
-if not validate_session():
-    st.warning("Session expired or invalid. Please login again.")
+if not st.session_state.get("logged_in"):
     st.switch_page("Home.py")
-    st.stop()
 
 # ── Brand colours ─────────────────────────────────────────────────────────────
 ORANGE = "#FF6B35"

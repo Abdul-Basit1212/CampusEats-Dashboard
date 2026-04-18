@@ -11,16 +11,12 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 from database import fetch_data, get_all_campuses
-from security import validate_session, authorize_stall_access, log_audit
 
 # ── Page config & auth guard ──────────────────────────────────────────────────
 st.set_page_config(page_title="Stall Dashboard · CampusEats", page_icon="🏪", layout="wide")
 
-# ⚠️ SECURITY: Validate session on EVERY page load
-if not validate_session():
-    st.warning("Session expired or invalid. Please login again.")
+if not st.session_state.get("logged_in"):
     st.switch_page("Home.py")
-    st.stop()
 
 # ── Brand colours ─────────────────────────────────────────────────────────────
 ORANGE = "#FF6B35"
