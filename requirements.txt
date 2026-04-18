@@ -1,0 +1,36 @@
+# ==========================================
+# 1. CORE DATA & MACHINE LEARNING
+# ==========================================
+pandas==2.2.3          # Data manipulation and grouping
+numpy==2.2.5           # Numerical operations
+scikit-learn==1.6.1    # Sales forecasting & food recommendation engine
+
+# ==========================================
+# 2. THE ANALYTICAL DASHBOARD (App 1)
+# ==========================================
+streamlit==1.45.1      # The main dashboard framework
+plotly==6.0.1          # Interactive business charts (heatmaps, pie charts)
+folium==0.16.0         # Map generation framework
+streamlit-folium==0.20.0 # Embeds the Folium maps inside Streamlit
+
+# ==========================================
+# 3. THE STUDENT API BACKEND (App 2)
+# ==========================================
+fastapi==0.111.0       # High-performance API framework
+uvicorn[standard]==0.30.1 # The lightning-fast server that runs FastAPI
+python-multipart==0.0.9   # Handles form data in FastAPI
+pydantic==2.7.1        # Data validation for your API endpoints
+
+# ==========================================
+# 4. DATABASE & ORM
+# ==========================================
+# sqlite3 is built-in, but we need an ORM to manage complex relationships
+sqlalchemy==2.0.30     # Database toolkit to connect FastAPI/Streamlit to SQLite safely
+
+# ==========================================
+# 5. EXTERNAL APIs & INTEGRATIONS
+# ==========================================
+google-generativeai==0.5.4 # Google Gemini API for your Chatbot & Voicebot logic
+stripe==9.8.0          # Stripe API for mock payment processing
+python-dotenv==1.0.1   # Securely loads your API keys from a .env file
+requests==2.32.3       # For any standard HTTP calls to other web services
