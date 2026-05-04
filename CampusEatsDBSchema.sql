@@ -85,6 +85,7 @@ CREATE TABLE Stalls (
     location_lat REAL,
     location_long REAL,
     is_active BOOLEAN DEFAULT 1,
+    avg_prep_time_minutes INTEGER DEFAULT 15,
     FOREIGN KEY (campus_id) REFERENCES Campuses(campus_id)
 );
 
@@ -174,14 +175,30 @@ CREATE TABLE Reviews (
     rating INTEGER CHECK(rating >= 1 AND rating <= 5),
     comment TEXT,
     review_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    rider_rating INTEGER CHECK(rider_rating >= 1 AND rider_rating <= 5) DEFAULT NULL,
+    rider_comment TEXT DEFAULT NULL,
     FOREIGN KEY (order_id) REFERENCES Orders(order_id),
     FOREIGN KEY (item_id) REFERENCES Items(item_id)
 );
 
 -- ==========================================
--- 6. PERFORMANCE INDEXES
+-- 7. ORDER STATUS TRACKING (NEW)
+-- ==========================================
+CREATE TABLE Order_Status_Logs (
+    log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT,
+    FOREIGN KEY (order_id) REFERENCES Orders(order_id)
+);
+
+-- ==========================================
+-- 8. PERFORMANCE INDEXES
 -- ==========================================
 CREATE INDEX idx_orders_time ON Orders(order_time);
 CREATE INDEX idx_orders_stall ON Orders(stall_id);
 CREATE INDEX idx_orders_rider ON Orders(rider_id);
 CREATE INDEX idx_wallet_student ON Wallet_Transactions(student_id);
+CREATE INDEX idx_order_status_logs_order ON Order_Status_Logs(order_id);
+CREATE INDEX idx_order_status_logs_timestamp ON Order_Status_Logs(timestamp);

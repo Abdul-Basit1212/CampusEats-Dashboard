@@ -10,8 +10,12 @@ def create_and_populate_db():
     conn = sqlite3.connect('CampusEats.db')
     cursor = conn.cursor()
 
-    # Read schema
+    # Read base schema
     with open('CampusEatsDBSchema.sql', 'r') as f:
+        cursor.executescript(f.read())
+    
+    # Apply migration for new tables and columns
+    with open('CampusEats_Migration_v4.sql', 'r') as f:
         cursor.executescript(f.read())
 
     def random_date(start_date, end_date):
@@ -77,6 +81,7 @@ def create_and_populate_db():
     # 6. Stalls & Items with CONSTANT stalls per campus
     # Stalls 1-33 → campus 1, 34-66 → campus 2, 67-100 → campus 3
     stalls = []
+    stall_images = {}
     for st_id in range(1, 101):
         if st_id <= 33:
             c_id = 1
@@ -88,8 +93,15 @@ def create_and_populate_db():
         campus_lat, campus_lon = campuses[c_id-1][1], campuses[c_id-1][2]
         stall_lat = campus_lat + random.uniform(-0.015, 0.015)
         stall_lon = campus_lon + random.uniform(-0.015, 0.015)
-        stalls.append((c_id, f"Stall {st_id}", random.choice(['Desi', 'Fast Food', 'Snacks']), 'Owner', default_hash, stall_lat, stall_lon, 1))
-    cursor.executemany('INSERT INTO Stalls (campus_id, name, category, owner_name, password_hash, location_lat, location_long, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', stalls)
+        avg_prep_time = random.randint(10, 30)  # 10-30 minutes prep time
+        
+        # Generate stall branding URLs
+        logo_url = f"https://via.placeholder.com/150?text=Stall{st_id}_Logo"
+        banner_url = f"https://via.placeholder.com/1200x300?text=Stall{st_id}_Banner"
+        stall_images[st_id] = (logo_url, banner_url)
+        
+        stalls.append((c_id, f"Stall {st_id}", random.choice(['Desi', 'Fast Food', 'Snacks']), 'Owner', default_hash, stall_lat, stall_lon, 1, avg_prep_time, logo_url, banner_url))
+    cursor.executemany('INSERT INTO Stalls (campus_id, name, category, owner_name, password_hash, location_lat, location_long, is_active, avg_prep_time_minutes, logo_url, banner_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', stalls)
 
     # Item categories with realistic items
     item_categories = {
@@ -166,29 +178,39 @@ def create_and_populate_db():
         
         total = (subtotal - d_amt) + gst + tip
         
+        # Add delivery fee (200 if Delivery, 0 if Pickup)
+        delivery_fee = 200.0 if o_type == 'Delivery' else 0.0
+        
         # Add cancel reason if order is canceled
         cancel_reason = None
         if status == 'Canceled':
             cancel_reason = random.choice(['Out of Stock', 'Payment Failed', 'Rider Unavailable', 'Customer Request', 'System Error'])
         
-        orders.append((s_id, st_id, r_id, o_time, o_type, subtotal, promo, d_amt, gst, tip, total, pm, 'Paid', status, cancel_reason))
+        # Determine payment gateway
+        if pm == 'Cash':
+            payment_gateway = random.choice(['COD', 'Card_on_Delivery'])
+        else:  # Campus Wallet
+            payment_gateway = 'Wallet'
+        
+        orders.append((s_id, st_id, r_id, o_time, o_type, subtotal, promo, d_amt, gst, tip, total, pm, 'Paid', status, cancel_reason, delivery_fee, payment_gateway))
         
         if pm == 'Campus Wallet' and status == 'Completed':
             new_wallet_ledgers.append((s_id, -total, 'Order Payment', o_time))
 
     cursor.executemany('''
         INSERT INTO Orders 
-        (student_id, stall_id, rider_id, order_time, order_type, subtotal, promo_code, discount_amount, gst_amount, tip_amount, total_amount, payment_method, payment_status, delivery_status, cancel_reason) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (student_id, stall_id, rider_id, order_time, order_type, subtotal, promo_code, discount_amount, gst_amount, tip_amount, total_amount, payment_method, payment_status, delivery_status, cancel_reason, delivery_fee, payment_gateway) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', orders)
     cursor.executemany('INSERT INTO Order_Items (order_id, item_id, quantity, unit_price) VALUES (?, ?, ?, ?)', order_items)
     cursor.executemany('INSERT INTO Wallet_Transactions (student_id, amount, transaction_type, timestamp) VALUES (?, ?, ?, ?)', new_wallet_ledgers)
     
     # 8. Reviews & Ratings for completed orders (70% of completed orders get reviews)
-    cursor.execute('SELECT order_id, stall_id FROM Orders WHERE delivery_status = "Completed"')
+    cursor.execute('SELECT order_id, stall_id, order_type, rider_id FROM Orders WHERE delivery_status = "Completed"')
     completed_orders = cursor.fetchall()
     
     reviews = []
+    order_status_logs = []
     review_comments = [
         "Great food and fast delivery!",
         "Delicious! Will order again.",
@@ -207,7 +229,20 @@ def create_and_populate_db():
         "Worth the price."
     ]
     
-    for o_id, st_id in completed_orders:
+    rider_comments = [
+        "Rider was professional and courteous",
+        "Fast and efficient delivery",
+        "Very friendly rider",
+        "Delivered on time",
+        "Rider handled food carefully",
+        "Great communication",
+        "Could have been faster",
+        "Professional service",
+        "Very polite",
+        "Excellent rider experience"
+    ]
+    
+    for o_id, st_id, o_type, r_id in completed_orders:
         if random.random() < 0.7:  # 70% of completed orders get reviews
             # Order-level review distribution: 10% 1-2, 20% 3, 70% 4-5 (avg ~4.1)
             rand = random.random()
@@ -226,7 +261,25 @@ def create_and_populate_db():
                 cursor.execute('SELECT order_time FROM Orders WHERE order_id = ?', (o_id,)).fetchone()[0],
                 '%Y-%m-%d %H:%M:%S'
             ) + timedelta(hours=random.randint(1, 24))).strftime('%Y-%m-%d %H:%M:%S')
-            reviews.append((o_id, None, rating, comment, review_time))
+            
+            # Add rider rating if delivery order (50% of delivery reviews get rider ratings)
+            rider_rating = None
+            rider_comment = None
+            if o_type == 'Delivery' and r_id and random.random() < 0.5:
+                rider_rand = random.random()
+                if rider_rand < 0.05:
+                    rider_rating = 1
+                elif rider_rand < 0.1:
+                    rider_rating = 2
+                elif rider_rand < 0.25:
+                    rider_rating = 3
+                elif rider_rand < 0.5:
+                    rider_rating = 4
+                else:
+                    rider_rating = 5
+                rider_comment = random.choice(rider_comments)
+            
+            reviews.append((o_id, None, rating, comment, review_time, rider_rating, rider_comment))
             
             # Item-level reviews (30% of reviewed orders get item reviews)
             if random.random() < 0.3:
@@ -246,9 +299,88 @@ def create_and_populate_db():
                         else:
                             item_rating = 5
                         item_comment = random.choice(review_comments)
-                        reviews.append((o_id, i_id, item_rating, item_comment, review_time))
+                        reviews.append((o_id, i_id, item_rating, item_comment, review_time, None, None))
     
-    cursor.executemany('INSERT INTO Reviews (order_id, item_id, rating, comment, review_time) VALUES (?, ?, ?, ?, ?)', reviews)
+    cursor.executemany('INSERT INTO Reviews (order_id, item_id, rating, comment, review_time, rider_rating, rider_comment) VALUES (?, ?, ?, ?, ?, ?, ?)', reviews)
+    
+    # 9. Order Status Logs - Create status trail for all orders
+    cursor.execute('SELECT order_id, order_time, delivery_status, cancel_reason FROM Orders')
+    all_orders = cursor.fetchall()
+    
+    for o_id, o_time, status, cancel_reason in all_orders:
+        # Initial status log
+        order_status_logs.append((o_id, status, o_time, 'Order created'))
+        
+        # If canceled, add a second log entry
+        if status == 'Canceled':
+            cancel_time = (datetime.strptime(o_time, '%Y-%m-%d %H:%M:%S') + timedelta(minutes=random.randint(5, 30))).strftime('%Y-%m-%d %H:%M:%S')
+            order_status_logs.append((o_id, 'Canceled', cancel_time, f'Reason: {cancel_reason}'))
+    
+    cursor.executemany('INSERT INTO Order_Status_Logs (order_id, status, timestamp, notes) VALUES (?, ?, ?, ?)', order_status_logs)
+    
+    # 10. Discount Breakdown - Add stacked discounts for 40% of orders with promo codes
+    cursor.execute('SELECT order_id, subtotal, promo_code FROM Orders WHERE promo_code IS NOT NULL AND delivery_status = "Completed"')
+    orders_with_promos = cursor.fetchall()
+    
+    discount_breakdowns = []
+    for o_id, subtotal, promo_code in orders_with_promos:
+        if random.random() < 0.4:  # 40% of promo orders get additional game discounts
+            # Base promo discount
+            pct, cap = next((p[1], p[2]) for p in promos if p[0] == promo_code)
+            promo_discount = min(subtotal * pct, cap)
+            discount_breakdowns.append((o_id, 'promo', pct, promo_discount))
+            
+            # Add game discount on top (5-15%)
+            game_discount_pct = random.uniform(0.05, 0.15)
+            game_discount_amt = subtotal * game_discount_pct
+            discount_breakdowns.append((o_id, 'game', game_discount_pct, game_discount_amt))
+    
+    cursor.executemany('INSERT INTO Discount_Breakdown (order_id, discount_type, discount_percentage, discount_amount) VALUES (?, ?, ?, ?)', discount_breakdowns)
+    
+    # 11. Game Rewards - Track rewards for 50% of students
+    cursor.execute('SELECT DISTINCT student_id FROM Orders WHERE delivery_status = "Completed"')
+    completed_students = [row[0] for row in cursor.fetchall()]
+    
+    game_rewards = []
+    for s_id in random.sample(completed_students, int(len(completed_students) * 0.5)):
+        # Generate 1-3 game rewards per student
+        num_rewards = random.randint(1, 3)
+        for _ in range(num_rewards):
+            score = random.randint(50, 500)
+            discount_pct = min(score / 1000, 0.25)  # Cap at 25%
+            
+            # 50% have associated orders, 50% are general rewards
+            o_id = None
+            if random.random() < 0.5:
+                cursor.execute('SELECT order_id FROM Orders WHERE student_id = ? AND delivery_status = "Completed" ORDER BY RANDOM() LIMIT 1', (s_id,))
+                result = cursor.fetchone()
+                if result:
+                    o_id = result[0]
+            
+            game_rewards.append((s_id, o_id, score, discount_pct))
+    
+    cursor.executemany('INSERT INTO Game_Rewards (student_id, order_id, score, discount_percentage) VALUES (?, ?, ?, ?)', game_rewards)
+    
+    # 12. AI Combos - Track frequently paired items from completed orders
+    cursor.execute('SELECT DISTINCT order_id FROM Orders WHERE delivery_status = "Completed" ORDER BY RANDOM() LIMIT 500')
+    sample_orders = [row[0] for row in cursor.fetchall()]
+    
+    combo_frequency = {}
+    for o_id in sample_orders:
+        cursor.execute('SELECT item_id FROM Order_Items WHERE order_id = ?', (o_id,))
+        items = [row[0] for row in cursor.fetchall()]
+        
+        # Create pairs from items in the same order
+        for i in range(len(items)):
+            for j in range(i+1, len(items)):
+                item_1, item_2 = min(items[i], items[j]), max(items[i], items[j])
+                key = (item_1, item_2)
+                combo_frequency[key] = combo_frequency.get(key, 0) + 1
+    
+    # Insert combos that appear at least 2 times
+    ai_combos = [(item_1, item_2, freq) for (item_1, item_2), freq in combo_frequency.items() if freq >= 2]
+    if ai_combos:
+        cursor.executemany('INSERT INTO AI_Combos (item_1_id, item_2_id, frequency) VALUES (?, ?, ?)', ai_combos)
     
     conn.commit()
     conn.close()

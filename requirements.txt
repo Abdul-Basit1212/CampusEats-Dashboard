@@ -30,7 +30,8 @@ sqlalchemy==2.0.30     # Database toolkit to connect FastAPI/Streamlit to SQLite
 # ==========================================
 # 5. EXTERNAL APIs & INTEGRATIONS
 # ==========================================
-google-generativeai==0.5.4 # Google Gemini API for your Chatbot & Voicebot logic
+google-generativeai==0.8.6 # Google Gemini API for your Chatbot & Voicebot logic (updated for Python 3.14.3 compatibility)
+protobuf==5.28.3       # Protocol Buffers (explicit version for compatibility with Python 3.14.3)
 stripe==9.8.0          # Stripe API for mock payment processing
 python-dotenv==1.0.1   # Securely loads your API keys from a .env file
 requests==2.32.3       # For any standard HTTP calls to other web services

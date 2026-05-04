@@ -5,6 +5,13 @@ Access: all authenticated roles (output scoped to role).
 """
 
 import os
+import sys
+
+# ── PYTHON 3.14+ PROTOBUF COMPATIBILITY FIX ────────────────────────────────
+# Disable UPB (C extension) for protobuf to work with Python 3.14.3
+# This forces use of pure Python implementation
+os.environ["PROTOBUF_PYTHON_IMPL"] = "python"
+
 import streamlit as st
 import pandas as pd
 import numpy as np
